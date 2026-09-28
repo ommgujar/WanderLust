@@ -5,27 +5,25 @@
 
         <h2>Edit your Details</h2>
 
-        <form 
-            method="POST" 
-            action="/listings/<%= listing._id %>?_method=PUT" 
-            novalidate 
+        <form
+            method="POST"
+            action="/listings/<%= listing._id %>?_method=PUT"
+            novalidate
             class="needs-validation"
-        >
+            enctype="multipart/form-data">
 
             <!-- Title -->
             <div class="mb-3">
                 <label for="title" class="form-label">Title</label>
 
-                <input 
-                    name="listing[title]" 
-                    value="<%= listing.title %>" 
-                    type="text" 
+                <input
+                    name="listing[title]"
+                    value="<%= listing.title %>"
+                    type="text"
                     class="form-control"
-                    required
-                >
-                 <div class="invalid-feedback">Give proper Title!</div>
+                    required>
+                <div class="invalid-feedback">Give proper Title!</div>
             </div>
-
 
             <!-- Description -->
             <div class="mb-3">
@@ -33,31 +31,29 @@
                     Description
                 </label>
 
-                <textarea 
-                    name="listing[description]" 
+                <textarea
+                    name="listing[description]"
                     class="form-control"
-                    required
-                ><%= listing.description %></textarea>
+                    required><%= listing.description %></textarea>
                 <div class="invalid-feedback">Description should be Valid!</div>
             </div>
+    <div class="mb-3">
+        Original Listing Image<br>
+                <img src="<%= originalImageUrl %>" height ="200" width ="250">
 
-
+            </div>
             <!-- Image -->
             <div class="mb-3">
                 <label for="image" class="form-label">
-                    Image Link
+                    Upload New Image
                 </label>
 
-                <input 
-                    name="listing[image][url]" 
-                    value="<%= listing.image.url%>" 
-                    type="text"
-                    class="form-control"
-                    required
-                >
-                <div class="invalid-feedback">Image link should be Valid!</div>
-            </div>
+                <input
+                    name="listing[image][url]"
+                    type="file"
+                    class="form-control">
 
+            </div>
 
             <!-- Price + Location -->
             <div class="row">
@@ -67,34 +63,31 @@
                         Price
                     </label>
 
-                    <input 
-                        name="listing[price]" 
-                        value="<%= listing.price %>" 
-                        type="number" 
+                    <input
+                        name="listing[price]"
+                        value="<%= listing.price %>"
+                        type="number"
                         class="form-control"
-                        required
-                    >
+                        required>
                     <div class="invalid-feedback">Price should be Valid!</div>
                 </div>
-
 
                 <div class="col-md-8">
                     <label for="location" class="form-label">
                         Location
                     </label>
 
-                    <input 
-                        name="listing[location]" 
-                        value="<%= listing.location %>" 
-                        type="text" 
+                    <input
+                        name="listing[location]"
+                        value="<%= listing.location %>"
+                        type="text"
                         class="form-control"
-                        required
-                    >
-                    <div class="invalid-feedback">Location should be Valid!</div>
+                        required>
+                    <div class="invalid-feedback">Location should be
+                        Valid!</div>
                 </div>
 
             </div>
-
 
             <!-- Country -->
             <div class="mb-3">
@@ -102,16 +95,15 @@
                     Country
                 </label>
 
-                <input 
-                    name="listing[country]" 
-                    value="<%= listing.country %>" 
-                    type="text" 
+                <input
+                    name="listing[country]"
+                    value="<%= listing.country %>"
+                    type="text"
                     class="form-control"
-                    required
-                >
-                <div class="invalid-feedback">Country Name should be Valid!</div>
+                    required>
+                <div class="invalid-feedback">Country Name should be
+                    Valid!</div>
             </div>
-
 
             <button class="btn btn-dark edit-btn mt-3">
                 Edit
@@ -121,5 +113,3 @@
 
     </div>
 </div>
-
-<script src="/js/script.js"></script>

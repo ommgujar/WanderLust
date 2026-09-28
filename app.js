@@ -1,114 +1,147 @@
+if(process.env.NODE_ENV != "production"){
+    require('dotenv').config()
+}
+
+
 const express = require("express");
 const app = express();
-const Listing = require("./models/listing.js");
-const ejsMate = require("ejs-mate");
-const wrapAsync = require("./utils/wrapAsync.js");
+
 const mongoose = require("mongoose");
-const methodOverride = require("method-override")
 const path = require("path");
+const methodOverride = require("method-override");
+const ejsMate = require("ejs-mate");
+
+const session = require("express-session");
+const MongoStore = require('connect-mongo').default;
+const flash = require("connect-flash");
+
+const passport = require("passport");
+const LocalStrategy = require("passport-local");
+
+const User = require("./models/user.js");
+
 const ExpressError = require("./utils/ExpressError");
-const {listingSchema} = require("./schema.js");
+
+const listingRouter = require("./routes/listing.js");
+const reviewRouter = require("./routes/review.js");
+const userRouter = require("./routes/user.js");
+
+
+// ================= BASIC CONFIGURATION =================
+
 app.use(methodOverride("_method"));
-app.use(express.urlencoded({extended:true}));
-app.set("view engine","ejs");
-app.set("views",path.join(__dirname,"views"));
-app.use(express.static(path.join(__dirname,"/public")));
-app.engine('ejs',ejsMate);
-main().then(() =>{
-    console.log("Connected to DB");
-})
-.catch(err => console.log(err));
+
+app.use(express.urlencoded({ extended: true }));
+app.use(express.json());
+
+app.set("view engine", "ejs");
+app.set("views", path.join(__dirname, "views"));
+
+app.engine("ejs", ejsMate);
+
+app.use(express.static(path.join(__dirname, "public")));
+
+
+// ================= DATABASE CONNECTION =================
+const dbUrl = process.env.ATLASDB_URL;
+main()
+    .then(() => {
+        console.log("Connected to DB");
+    })
+    .catch((err) => {
+        console.log(err);
+    });
+
 async function main() {
-  await mongoose.connect('mongodb://127.0.0.1:27017/wanderlust');
+    await mongoose.connect(dbUrl);
 }
-app.get("/",(req,res)=>{
-    res.send("Active");
+
+
+// ================= SESSION =================
+const store = MongoStore.create({
+    mongoUrl : dbUrl ,
+    crypto:{
+        secret :process.env.SECRET,
+    },
+    touchAfter : 24*3600,
 });
 
-const validateListing = (req,res,next) =>{
-    let {error} = listingSchema.validate(req.body);
-    
-    if(error){
-        let errMsg = error.details.map((el) =>el.message).join(",");
-        throw new ExpressError(400,errMsg);
-    }else{
-        next();
+store.on("error",(error)=>{
+    console.log("ERROR in MONGO SESSION Store",error);
+})
+const sessionOptions = {
+    store:store,
+    secret: process.env.SECRET,
+    resave: false,
+    saveUninitialized: true,
+
+    cookie: {
+        expires: Date.now() + 7 * 24 * 60 * 60 * 1000,
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+        httpOnly: true
     }
 };
-//index route
-app.get("/listings",wrapAsync(async(req,res)=>{
-const allListings = await Listing.find({});
-res.render("./listings/index.ejs",{allListings});
 
-}));
-
-// new route
-app.get("/listings/new",(req,res)=>{
-    res.render("listings/new.ejs");
-});
-//create route
-app.post("/listings",validateListing,wrapAsync(async(req,res,next)=>{
-  
-const newList = new Listing(req.body.listing);
+app.use(session(sessionOptions));
 
 
-await newList.save();
-res.redirect("/listings");
-}));
+// ================= FLASH =================
 
-// edit route
-app.get("/listings/:id/edit",wrapAsync(async(req,res)=>{
-  let {id} = req.params;
-  const listing = await Listing.findById(id);
-res.render("listings/edit.ejs",{listing});
-}));
+app.use(flash());
 
-//update route
-app.put("/listings/:id",validateListing,wrapAsync(async(req,res)=>{
-    
-    
- let {id} = req.params;
- await Listing.findByIdAndUpdate(id,{...req.body.listing});
- res.redirect(`/listings/${id}`);
-}));
-//destroy route
-app.delete("/listings/:id",wrapAsync(async(req,res)=>{
-let {id} = req.params;
-let delList = await Listing.findByIdAndDelete(id);
-console.log(delList);
-res.redirect("/listings");
-}));
 
-// show route
-app.get("/listings/:id",wrapAsync(async (req,res)=>{
-    let {id} = req.params;
- const listing =  await Listing.findById(id);
- res.render("listings/show.ejs",{listing});
-}));
+// ================= PASSPORT =================
 
-// app.get("/testListing",async(req,res)=>{
-//  let sampleListing = new Listing({
-//     title : "My New Villa",
-//     description:"By the beach",
-//     price : 1200,
-//     location:"Calangute,Goa",
-//     country : "India",
+app.use(passport.initialize());
+app.use(passport.session());
 
-//  });
+passport.use(new LocalStrategy(User.authenticate()));
 
-//  await sampleListing.save();
-//  console.log("Sample was saved");
-//  res.send("Successful");
-// })
-app.all("/{*splat}",(req,res,next)=>{
-    next(new ExpressError(404,"Page Not Found !"));
+passport.serializeUser(User.serializeUser());
+passport.deserializeUser(User.deserializeUser());
+
+
+// ================= GLOBAL VARIABLES =================
+
+app.use((req, res, next) => {
+    res.locals.success = req.flash("success");
+    res.locals.error = req.flash("error");
+    res.locals.currUser = req.user;
+
+    next();
 });
 
-app.use((err,req,res,next)=>{
-    let {statusCode=500,message="Something went wrong!"} = err;
-    res.status(statusCode).render("error.ejs",{message});
-// res.status(statusCode).send(message);
+
+// ================= ROUTES =================
+
+app.use("/listings", listingRouter);
+
+app.use("/listings/:id/reviews", reviewRouter);
+
+app.use("/", userRouter);
+
+
+// ================= 404 ERROR =================
+
+app.all("/{*splat}", (req, res, next) => {
+    next(new ExpressError(404, "Page Not Found!"));
 });
-app.listen(8080,()=>{
+
+
+// ================= ERROR HANDLING =================
+
+app.use((err, req, res, next) => {
+    let {
+        statusCode = 500,
+        message = "Something went wrong!"
+    } = err;
+
+    res.status(statusCode).render("error.ejs", { message });
+});
+
+
+// ================= SERVER =================
+
+app.listen(8080, () => {
     console.log("Listening to port 8080");
 });
